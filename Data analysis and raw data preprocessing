@@ -1,0 +1,310 @@
+## Data analysis, regression, based on Python
+import numpy as np
+import librosa
+from scipy.signal import get_window, stft
+import math
+def c_a(c):
+    i=0
+    e1,e2=[],[]
+    while i< c.shape[1]:
+        for j in range(c.shape[1]):
+            data = {'X': list(c[:,i]),
+                    'Y': list(c[:,j])}
+            df = pd.DataFrame(data)
+            p_c, p_v = stats.spearmanr(df['X'], df['Y'])
+            if p_v<0.1:
+                ps = '*'
+            else:
+                ps='-'
+            e1.append(round(p_c,2))
+            e2.append(ps)
+        i+=1
+    return e1,e2
+
+def get_log(c):
+    i=0
+    e=[]
+    while i< len(c):
+        s=math.log(c[i])
+        e.append(s)
+        i+=1
+    return e
+
+def get_log2(x):
+    i=0
+    e=[]
+    while i< x.shape[1]:
+        cc=list(x[:,i])
+        s=get_log(c=cc)
+        e.append(s)
+        i+=1
+    ex=np.array(e).T
+    return ex
+
+##
+import xlrd
+import pandas as pd
+from scipy import stats
+###The uploaded data
+path22='/Users/zhangzhipeng/Desktop/内容属性/data.xlsx'
+food= xlrd.open_workbook(path22)
+foodsheet = food.sheet_by_index(0)
+
+a1=foodsheet.col_values(9)[1:]
+a2=foodsheet.col_values(10)[1:]
+v1=foodsheet.col_values(11)[1:]
+v3=foodsheet.col_values(13)[1:]
+
+c1=foodsheet.col_values(14)[1:]
+c2=foodsheet.col_values(15)[1:]
+c3=foodsheet.col_values(16)[1:]
+c4=foodsheet.col_values(17)[1:]
+c5=foodsheet.col_values(18)[1:]
+
+sen=foodsheet.col_values(22)[1:]
+con=foodsheet.col_values(23)[1:]
+beh=foodsheet.col_values(21)[1:]
+
+Xs=np.array([beh,sen,con,a1,a2,v1,v3,c1,c2,c3,c5]).T
+hh=c_a(c=Xs)
+print(np.array(hh[0]).reshape(11,11))
+
+
+
+X1=np.array(get_log(c=Xs[:,2])).reshape(1138,1)
+X2=get_log2(x=Xs[:,9:])
+X=np.hstack((Xs[:,0:2],X1,Xs[:,3:9],X2))
+
+import statsmodels.api as sm
+from sklearn.preprocessing import MinMaxScaler
+
+X = MinMaxScaler().fit_transform(X)
+
+Y=X[:,1]
+Xno=X[:,3:]
+Xno = sm.add_constant(Xno)
+model = sm.OLS(Y, Xno).fit()
+print(model.summary())
+
+####调节效应
+import scipy.stats
+
+
+def calculate_residual_sum_of_squares(X, Y):
+    # 拟合回归模型
+    X = sm.add_constant(X)
+    regression_coefficients = np.linalg.lstsq(X, Y, rcond=None)[0]
+    # 预测因变量的值
+    Y_pre = np.dot(X, regression_coefficients)
+    # 计算残差平方和
+    residuals = Y - Y_pre
+    residual_sum_of_squares = np.sum(residuals**2)
+    return residual_sum_of_squares,regression_coefficients
+
+#RSS = calculate_residual_sum_of_squares(X, Y_observed)
+
+
+def cr(X,y,vindex=0,n1=498):
+    X1=X[0:n1]
+    y1=y[0:n1]
+    RS1 = calculate_residual_sum_of_squares(X1, y1)
+    RSS1=RS1[0]
+    X2 = X[n1:]
+    y2 = y[n1:]
+    RS2 = calculate_residual_sum_of_squares(X2, y2)
+    RSS2 = RS2[0]
+    X11=X1[:,vindex]
+    SS1=np.sum((X11-np.mean(X11))**2)
+    X22 = X2[:, vindex]
+    SS2 = np.sum((X22 - np.mean(X22)) ** 2)
+    b12=RS1[1][vindex+1]-RS2[1][vindex+1]
+    t=b12/((((RSS1+RSS2)/(len(X)-4))*(1/SS1+1/SS2))**0.5)
+    p=scipy.stats.t.sf(abs(t), df=len(X)-4)
+    return b12,t,p
+
+tp=list(np.array(foodsheet.col_values(19)[1:]).astype(int))
+
+ind = [index for index, value in enumerate(tp) if value ==0]
+indo = [index for index, value in enumerate(tp) if value ==1]
+
+j=3
+i=0
+while i < 3:
+    Xd = np.vstack((X[ind, :], X[indo, :]))
+    aa = np.hstack((Xd[:, j].reshape(1138, 1), Xd[:, 7:]))
+    s = cr(X=aa, y=Xd[:, i], vindex=0, n1=len(ind))
+    print(s)
+    i += 1
+j=4
+i=0
+while i < 3:
+    Xd = np.vstack((X[ind, :], X[indo, :]))
+    aa = np.hstack((Xd[:, j].reshape(1138, 1), Xd[:, 7:]))
+    s = cr(X=aa, y=Xd[:, i], vindex=0, n1=len(ind))
+    print(s)
+    i += 1
+j=5
+i=0
+while i < 3:
+    Xd = np.vstack((X[ind, :], X[indo, :]))
+    aa = np.hstack((Xd[:, j].reshape(1138, 1), Xd[:, 7:]))
+    s = cr(X=aa, y=Xd[:, i], vindex=0, n1=len(ind))
+    print(s)
+    i += 1
+j=6
+i=0
+while i < 3:
+    Xd = np.vstack((X[ind, :], X[indo, :]))
+    aa = np.hstack((Xd[:, j].reshape(1138, 1), Xd[:, 7:]))
+    s = cr(X=aa, y=Xd[:, i], vindex=0, n1=len(ind))
+    print(s)
+    i += 1
+
+
+## Data preprocessing
+# raw data: link:https://pan.baidu.com/s/1uAF50mNO6EEWNRRJKjtzqA  passcode:k9be
+
+#####color richness
+import cv2
+##计算 单张图片的 色调（H），饱和度（S），明度（V）#
+def compute_HSV(image):
+    # get H,S,V value seperately
+    hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+    H, S, V = cv2.split(hsv)
+    ## 明度（V）
+    v = V.ravel()[np.flatnonzero(V)]  # 亮度非零的值
+    average_v = sum(v) / len(v)
+    ## 饱和度（S）
+    s = S.ravel()[np.flatnonzero(S)]
+    average_s = sum(s) / len(s)
+    ## 色调（H）
+    h = H.ravel()[np.flatnonzero(H)]
+    average_h = sum(h) / len(h)
+    # print('avg_H:{:.6f},\tavg_S:{:.6f},\t avg_V{:.6f}\t'.format(average_h,average_s,average_v))
+    hsv=[average_h, average_s, average_v]
+    return hsv
+
+#### sound richness
+import librosa
+import numpy as np
+# 加载WAV文件
+file_path = '/Users/zhangzhipeng/Desktop/内容属性/audio/100.wav'
+y, sr = librosa.load(file_path, sr=None)  # sr=None保持原始采样率
+# 计算MFCC特征
+mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=20)  # n_mfcc参数指定MFCC的系数数量，这里取20个系数
+mf=np.std(np.mean(np.abs(mfccs),axis=1))
+
+
+#### image richness
+import numpy as np
+from skimage import io, color
+
+
+def calculate_glcm_entropy(image, distance=1, angle=0, levels=256):
+    # 确保图像是二维的灰度图像
+    if len(image.shape) > 2:
+        image = color.rgb2gray(image)
+
+    # 将像素值缩放到0-levels-1
+    image = np.digitize(image, bins=np.linspace(0, 1, levels)) - 1
+
+    # 计算偏移量
+    if angle == 0:  # 0度
+        offset = (distance, 0)
+    elif angle == np.pi / 4:  # 45度
+        offset = (distance, distance)
+    elif angle == np.pi / 2:  # 90度
+        offset = (0, distance)
+    elif angle == 3 * np.pi / 4:  # 135度
+        offset = (-distance, distance)
+    else:
+        raise ValueError("Angle must be 0, pi/4, pi/2 or 3*pi/4")
+
+    # 创建GLCM矩阵
+    glcm = np.zeros((levels, levels), dtype=np.float32)
+
+    # 遍历图像计算共现矩阵
+    rows, cols = image.shape
+    for i in range(rows - abs(offset[0])):
+        for j in range(cols - abs(offset[1])):
+            row_val = image[i, j]
+            col_val = image[i + offset[0], j + offset[1]]
+            glcm[row_val, col_val] += 1
+
+    # 归一化
+    glcm = glcm / glcm.sum()
+
+    # 计算熵：H = -sum(p * log2(p))
+    entropy = 0.0
+    for i in range(levels):
+        for j in range(levels):
+            p = glcm[i, j]
+            if p > 0:  # 避免log(0)
+                entropy -= p * np.log2(p)
+
+    return entropy
+image = io.imread('/Users/zhangzhipeng/Desktop/内容属性/image set/100_1.jpg')
+entropy = calculate_glcm_entropy(image, distance=1, angle=np.pi / 4)
+
+
+
+
+###Expression richness
+from collections import Counter
+import jieba
+import jieba.posseg as psg
+path='/Users/zhangzhipeng/Downloads/stopword.xlsx'
+dict= xlrd.open_workbook(path)
+dictsheet = dict.sheet_by_index(0)
+stopwords=dictsheet.col_values(0)
+def pretty_cut(sentence):
+    cut_list = jieba.lcut(''.join(re.findall('[\u4e00-\u9fa5]', sentence)), cut_all=False)
+    for i in range(len(cut_list) - 1, -1, -1):
+        if cut_list[i] in stopwords:
+            del cut_list[i]
+        elif len(list(cut_list[i]))==1:
+            del cut_list[i]
+    return cut_list
+
+rew="喂，我来试一下这音响的效果啊，贼好，红声也花的泪痕懂我千夜泪花声，风起会涌，爱等着无法隐藏深的暖谁我深情心爱一生一世能分开，能有你的爱往心来，是不是有种在KTV包房的感觉啊，特别给力啊，而且颜值非常的高，看着贼值钱啊，还有他这个箱子诶，送礼倍儿有面是不是傻瓜式的操作，连上手机蓝牙就能用，而且是两个话筒诶，三五好友在你加一句1K歌甭体多带劲了哈。"
+c = pretty_cut(sentence=rew)
+wc = Counter(c)
+e = []
+for value in wc.values():
+     e.append(value)
+pi = np.array(e) / np.sum(e)
+gx = np.sum(pi * (1 - pi))
+
+
+#### sentiment
+from aip import AipNlp
+
+""" 你的 APPID AK SK """
+APP_ID = '72412413'
+API_KEY = "pXGeZjPRuHjY3QpvuqluzohL"
+SECRET_KEY = "7U4kY1ewPE5Od0sF0Y1quUZwJ8ftCNKO"
+client = AipNlp(APP_ID, API_KEY, SECRET_KEY)
+
+text="还要多占用一个插座，外面不像家里哪有那么多位置啊，就算有，还有其他设备"
+s=client.dnnlm(text)["ppl"]
+print(s)
+
+####Cognitive engagement
+# ##
+def cor(text,c):
+    i=0
+    e=[]
+    APP_ID = '79988817'
+    API_KEY = 'CejRI0mbCDKi4mS0UFppOvN8'
+    SECRET_KEY = 'KtvnSOl3mzbkMAPnIcRffQrlmFgU7NfG'
+    client = AipNlp(APP_ID, API_KEY, SECRET_KEY)
+    while i < len(c):
+        a = client.simnet(text[0:510], c[i][0:510])
+        print(i,len(c))
+        if 'score' in a:
+            aa=a['score']
+        else:
+            aa=0
+        e.append(aa)
+        i+=1
+    return e
